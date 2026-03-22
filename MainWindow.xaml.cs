@@ -34,6 +34,25 @@ public class FileRule : ValidationRule
     }
 }
 
+public class FileNameRule : ValidationRule
+{
+    public override ValidationResult Validate(object value, CultureInfo cultureInfo)
+    {
+        string? text = value as string;
+
+        if (string.IsNullOrEmpty(text))
+            return new ValidationResult(false, "File name format isn't specified.");
+
+        if (!text.Contains("{n}"))
+            return new ValidationResult(false, "File name format must include {n}.");
+
+        if (text.Any(c => Path.GetInvalidFileNameChars().Contains(c)))
+            return new ValidationResult(false, "File name format includes invalid characters.");
+
+        return ValidationResult.ValidResult;
+    }
+}
+
 public class FolderRule : ValidationRule
 {
     public override ValidationResult Validate(object value, CultureInfo cultureInfo)
@@ -53,7 +72,7 @@ public class NumberRule : ValidationRule
     {
         string? text = value as string;
 
-        var result = double.TryParse(text, out double _);
+        var result = int.TryParse(text, out int _);
         if (result)
             return ValidationResult.ValidResult;
 
@@ -66,6 +85,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     /// <see cref="private"/>
 
+    private readonly Lock Lock = new Lock();
+
+    private const string TitleRename = "Rename";
+
+    private const string TitleRenaming = "Renaming...";
+
+    /// <see cref="public"/>
+
     public ObservableCollection<RenameOperation> Actions
     {
         get => field;
@@ -76,7 +103,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     } = new();
 
-    /// <see cref="public"/>
 
     public int ExtensionCasing
     {
@@ -98,6 +124,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     } = "";
 
+
     public string Folder
     {
         get => field;
@@ -105,9 +132,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             field = value;
             OnPropertyChanged();
+            Preview();
         }
     } = "";
     
+
     public bool? IncludeSubfolders
     {
         get => field;
@@ -117,6 +146,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged();
         }
     } = false;
+
 
     public string IncrementAt
     {
@@ -148,6 +178,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     } = false;
 
+
+    public ObservableCollection<Exception> Log
+    {
+        get => field;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = new();
+
+    public string LogTitle
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = LogTitleDefault;
+
+    private const string LogTitleDefault = "0";
+
+
+    public string PreviewTitle
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = PreviewTitleDefault;
+
+    private const string PreviewTitleDefault = "0";
+
+
+    public string NameFormat
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = "{n}";
+
     public double NameFormatPadding
     {
         get => field;
@@ -157,10 +234,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged();
         }
     } = 1;
+
+
+    public bool IsBusy
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = false;
+
+    public bool IsPreviewing
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = false;
     
-
-    private readonly Lock Lock = new Lock();
-
     public bool IsRenaming
     {
         get => field;
@@ -183,125 +278,249 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     /// <see cref="private"/>
 
-    private void Preview()
+    private IEnumerable<string> GetFilesSafe(string root, bool includeSubfolders)
     {
-        if (string.IsNullOrWhiteSpace(Folder) || !Directory.Exists(Folder)) return;
-        Actions.Clear();
-
-        var folder = Folder;
-        var folderOption = IncludeSubfolders == true ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-
-        var allFiles = Directory.GetFiles(folder, "*.*", folderOption).GroupBy(Path.GetDirectoryName);
-
-        foreach (var group in allFiles)
+        if (!includeSubfolders)
         {
-            var folderFiles = group.OrderBy(f => f).ToList();
-            
-            var iAt = int.TryParse(IncrementAt, out var x) ? x : 1; /// Global counter
-            var iBy = int.TryParse(IncrementBy, out var y) ? y : 1;
+            return Directory.EnumerateFiles(root);
+        }
 
-            /// Counters per extension
-            var counters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        List<string> files = new();
+        Stack<string> pending = new();
+        pending.Push(root);
 
-            foreach (var file in folderFiles)
+        while (pending.Count > 0)
+        {
+            var path = pending.Pop();
+            try
             {
-                string oldExt = Path.GetExtension(file);
-                string newExt = string.IsNullOrWhiteSpace(ExtensionOverride) ? oldExt : ExtensionOverride;
+                // Add files in the current directory
+                files.AddRange(Directory.EnumerateFiles(path));
 
-                if (newExt.StartsWith('.')) 
-                    newExt = newExt[1..];
-
-                newExt = ExtensionCasing switch
+                // Push subdirectories onto the stack to explore later
+                foreach (var subdir in Directory.EnumerateDirectories(path))
                 {
-                    1 => newExt.ToLower(),
-                    2 => newExt.ToUpper(),
-                    3 => char.ToUpper(newExt[0]) + newExt[1..].ToLower(),
-                    _ => newExt
-                };
-
-                newExt = "." + newExt;
-
-                // Determine Increment
-                int currentVal;
-                if (IncrementByExtension == true)
-                {
-                    if (!counters.ContainsKey(oldExt)) 
-                        counters[oldExt] = iAt;
-
-                    currentVal = counters[oldExt];
-                    counters[oldExt] += iBy;
+                    pending.Push(subdir);
                 }
-                else
-                {
-                    currentVal = iAt;
-                    iAt += iBy;
-                }
-
-                string incrementStr = currentVal.ToString().PadLeft(Convert.ToInt32(NameFormatPadding), '0');
-                string nameBase = PatternBox.Text.Replace("{n}", incrementStr);
-
-                string newName = nameBase + newExt;
-                string newPath = Path.Combine(Path.GetDirectoryName(file)!, newName);
-
-                Actions.Add(new RenameOperation
-                {
-                    OldPath = file,
-                    OldName = Path.GetFileName(file),
-                    NewName = newName,
-                    NewPath = newPath,
-                    RelativeFolder = Path.GetRelativePath(folder, Path.GetDirectoryName(file)!)
-                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Log the skipped folder so the user knows why it's missing
+                // This is where you'd see 'System Volume Information' or 'Recovery'
+                continue;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                continue;
             }
         }
+        return files;
+    }
+
+    private async void Preview()
+    {
+        lock (Lock)
+        {
+            if (IsBusy || PreviewAuto?.IsChecked != true)
+                return;
+
+            IsBusy = true;
+            IsPreviewing = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(Folder) || !Directory.Exists(Folder))
+            goto Finish;
+
+        var folder = Folder;
+        var includeSub = IncludeSubfolders == true;
+
+        // Use a local list for background processing
+        var actions = new List<RenameOperation>();
+
+        await Task.Run(() =>
+        {
+            try
+            {
+                var all = GetFilesSafe(folder, includeSub);
+                var allGrouped = all.GroupBy(Path.GetDirectoryName);
+
+                var at = int.TryParse(IncrementAt, out var x) ? x : 1;
+
+                var iAt = at;
+                var iBy = int.TryParse(IncrementBy, out var y) ? y : 1;
+                
+                var counters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var group in allGrouped)
+                {
+                    var folderFiles = group.OrderBy(f => f).ToList();
+                    foreach (var file in folderFiles)
+                    {
+                        ///Thread.Sleep(50);
+                        string oldExt = Path.GetExtension(file);
+                        string newExt = string.IsNullOrWhiteSpace(ExtensionOverride) ? oldExt : ExtensionOverride;
+
+                        if (newExt.StartsWith('.'))
+                            newExt = newExt[1..];
+
+                        if (!string.IsNullOrEmpty(newExt))
+                        {
+                            newExt = ExtensionCasing switch
+                            {
+                                1 => newExt.ToLower(),
+                                2 => newExt.ToUpper(),
+                                3 => char.ToUpper(newExt[0]) + (newExt.Length > 1 ? newExt[1..].ToLower() : ""),
+                                _ => newExt
+                            };
+                        }
+
+                        newExt = "." + newExt;
+
+                        int currentVal;
+                        if (IncrementByExtension == true)
+                        {
+                            if (!counters.ContainsKey(oldExt))
+                                counters[oldExt] = at;
+
+                            currentVal = counters[oldExt];
+                            counters[oldExt] += iBy;
+                        }
+                        else
+                        {
+                            currentVal = iAt;
+                            iAt += iBy;
+                        }
+
+                        string incrementStr = currentVal.ToString().PadLeft(Convert.ToInt32(NameFormatPadding), '0');
+                        string nameBase = NameFormat.Replace("{n}", incrementStr);
+
+                        string newName = nameBase + newExt;
+                        string newPath = Path.Combine(Path.GetDirectoryName(file)!, newName);
+
+                        actions.Add(new RenameOperation
+                        {
+                            OldPath = file,
+                            OldName = Path.GetFileName(file),
+                            NewName = newName,
+                            NewPath = newPath,
+                            RelativeFolder = Path.GetRelativePath(folder, Path.GetDirectoryName(file)!)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() => Log.Add(new Exception($"Preview Error: {ex.Message}")));
+            }
+        });
+
+        Actions.Clear();
+        foreach (var action in actions) 
+            Actions.Add(action);
+
+        PreviewTitle = $"{Actions.Count}";
         CountElement.Text = $"{Actions.Count} files";
+
+        Finish:
+        {
+            lock (Lock)
+            {
+                IsPreviewing = false;
+                IsBusy = false;
+            }
+        }
     }
 
     private async void Rename()
     {
-        lock (Lock) { if (IsRenaming) return; }
-        IsRenaming = true;
+        lock (Lock) 
+        { 
+            if (IsBusy || !Actions.Any()) 
+                return;
 
-        if (!Actions.Any()) return;
+            IsBusy = true;
+            IsRenaming = true;
+        }
 
-        var result = MessageBox.Show($"Are you sure you want to rename {Actions.Count} files?",
-            "Rename", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        Title = TitleRenaming;
 
-        if (result != MessageBoxResult.Yes)
+        Log.Clear();
+        LogTitle = LogTitleDefault;
+
+        if (Actions.Select(a => a.NewPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != Actions.Count)
         {
             lock (Lock) { IsRenaming = false; }
+
+            var error = new Exception($"Current file name format causes collisions!");
+            Log.Add(error);
+
+            MessageBox.Show(error.Message, TitleRename, MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
 
+        var result = MessageBox.Show($"Are you sure you want to rename {Actions.Count} files?", TitleRename, MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes)
+        {
+            lock (Lock)
+            {
+                IsRenaming = false;
+                IsBusy = false;
+            }
+            return;
+        }
+
+        List<Exception> errors = new();
         await Task.Run(() =>
         {
-            /// 1. Rename temporarily to avoid collisions
-            foreach (var action in Actions)
+            try
             {
-                string temp = action.OldPath + ".tmp_" + Guid.NewGuid().ToString("N");
-
-                File.Move(action.OldPath, temp);
-                action.TempPath = temp;
-            }
-
-            /// 2. Final rename
-            foreach (var action in Actions)
-            {
-                try
+                /// 1. Rename temporarily to avoid collisions
+                foreach (var action in Actions)
                 {
-                    if (File.Exists(action.NewPath))
-                        File.Delete(action.NewPath); // Final safety
+                    string temp = action.OldPath + ".tmp_" + Guid.NewGuid().ToString("N");
 
-                    File.Move(action.TempPath, action.NewPath);
+                    File.Move(action.OldPath, temp);
+                    action.TempPath = temp;
                 }
-                catch (Exception e)
+
+                /// 2. Final rename
+                foreach (var action in Actions)
                 {
-                    Dispatcher.Invoke(() => MessageBox.Show($"Couldn't rename {action.OldPath}: {e.Message}"));
+                    try
+                    {
+                        File.Move(action.TempPath, action.NewPath);
+                        Dispatcher.Invoke(() => action.Status = Brushes.Green);
+                    }
+                    catch (Exception f) 
+                    { 
+                        errors.Add(f);
+                        Dispatcher.Invoke(() => action.Status = Brushes.Red);
+                    }
                 }
             }
+            catch (Exception e) { errors.Add(e); }
         });
 
-        lock (Lock) { IsRenaming = false; }
-        MessageBox.Show("Rename finished!", "Rename");
+        Title = TitleRename;
+
+        lock (Lock)
+        {
+            IsRenaming = false;
+            IsBusy = false;
+        }
+
+        if (errors.Any())
+        {
+            foreach (var e in errors)
+                Log.Add(e);
+
+            LogTitle = $"{errors.Count}";
+            MessageBox.Show($"One or more errors occurred while renaming. Check log for more details!", TitleRename);
+        }
+        else
+        {
+            MessageBox.Show("Rename finished successfully!", TitleRename);
+        }
 
         Preview();
     }
@@ -309,11 +528,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     /// <see cref="event"/>
 
-    private void AutoPreview_Updated(object sender, EventArgs e)
-    {
-        if (PreviewAuto?.IsChecked == true)
-            Preview();
-    }
+    private void AutoPreview_Updated(object sender, EventArgs e) => Preview();
 
 
     /// <see cref="RoutedEvent"/>
@@ -324,7 +539,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (dialog.ShowDialog() == true)
         {
             Folder = dialog.FolderName;
-            Preview();
         }
     }
 
@@ -336,17 +550,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     /// <see cref="INotifyPropertyChanged"/>
 
     public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    protected void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-public class RenameOperation
+public class RenameOperation : INotifyPropertyChanged
 {
+    /// <see cref="public"/>
+
     public string OldPath { get; set; } = "";
     public string OldName { get; set; } = "";
-    public string NewName { get; set; } = "";
-    public string NewPath { get; set; } = "";
+    public string NewName
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = "";
+    public string NewPath
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = "";
     public string TempPath { get; set; } = "";
     public string RelativeFolder { get; set; } = "";
-    public Brush StatusColor => File.Exists(NewPath) ? Brushes.Orange : Brushes.Green;
+    public Brush Status
+    {
+        get => field;
+        set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    } = Brushes.Orange;
+
+
+    /// <see cref="INotifyPropertyChanged"/>
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    public void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

@@ -7,8 +7,9 @@
     Width="900"
     WindowStartupLocation="CenterScreen">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
-
+        
         <ControlTemplate x:Key="ErrorTemplate">
             <StackPanel>
                 <AdornedElementPlaceholder x:Name="TextBoxPlaceholder"/>
@@ -252,8 +253,42 @@
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
+
+        <Style x:Key="RoundLoader" TargetType="ProgressBar">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid x:Name="TemplateRoot" SnapsToDevicePixels="true">
+                            <Ellipse Stroke="#0088EE" StrokeThickness="16" Opacity="1"/>
+                            <Ellipse x:Name="AnimationElement" 
+                             Stroke="{TemplateBinding Foreground}" 
+                             StrokeThickness="16" 
+                             StrokeDashArray="1 1" 
+                             RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform x:Name="Rotate" Angle="0"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="true">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="AnimationElement"
+                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                From="0" To="360" Duration="0:0:3.5"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-    <Grid IsEnabled="{Binding IsRenaming, Converter={StaticResource InverseBooleanConverter}}">
+    <Grid IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -275,7 +310,7 @@
                         <StackPanel>
                             <DockPanel>
                                 <Button Content="Browse..." Click="OnBrowse" DockPanel.Dock="Right" Margin="10,0,0,0" Style="{StaticResource BlueButton}"/>
-                                <TextBox x:Name="FolderElement" VerticalAlignment="Center" TextChanged="AutoPreview_Updated" Tag="0">
+                                <TextBox x:Name="FolderElement" VerticalAlignment="Center" Tag="0">
                                     <Binding Path="Folder" UpdateSourceTrigger="PropertyChanged">
                                         <Binding.ValidationRules>
                                             <local:FolderRule ValidatesOnTargetUpdated="True"/>
@@ -290,7 +325,7 @@
                                 Unchecked="AutoPreview_Updated"/>
                         </StackPanel>
                     </GroupBox>
-                    <GroupBox Grid.Column="0">
+                    <GroupBox>
                         <GroupBox.Header>
                             <TextBlock Style="{StaticResource GroupTitle}">FILE NAME</TextBlock>
                         </GroupBox.Header>
@@ -307,7 +342,13 @@
                                     <TextBlock Style="{StaticResource LabelTitle}">
                                         <Run>Format</Run> <Run FontStyle="Italic" Foreground="#55000000">{n} = number</Run>
                                     </TextBlock>
-                                    <TextBox x:Name="PatternBox" Text="{}{n}" TextChanged="AutoPreview_Updated"/>
+                                    <TextBox x:Name="FileNameFormatElement" TextChanged="AutoPreview_Updated">
+                                        <Binding Path="NameFormat" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <local:FileNameRule ValidatesOnTargetUpdated="True"/>
+                                            </Binding.ValidationRules>
+                                        </Binding> 
+                                    </TextBox>
                                 </StackPanel>
                             </Label>
                             <Label Grid.Row="1">
@@ -347,7 +388,7 @@
                             </Label>
                         </Grid>
                     </GroupBox>
-                    <GroupBox Grid.Column="1">
+                    <GroupBox>
                         <GroupBox.Header>
                             <TextBlock Style="{StaticResource GroupTitle}">FILE EXTENSION</TextBlock>
                         </GroupBox.Header>
@@ -381,50 +422,96 @@
                 </StackPanel>
             </ScrollViewer>
             <GridSplitter Grid.Column="1" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Background="Transparent" ShowsPreview="True" Width="8"/>
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <DataGrid
-                    AutoGenerateColumns="False"
-                    BorderBrush="#22000000"
-                    BorderThickness="1,1,1,0"
-                    HeadersVisibility="Column"
-                    ItemsSource="{Binding Actions}"
-                    SelectionMode="Single">
-                    <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Status" Visibility="Collapsed">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Ellipse Width="10" Height="10" Fill="{Binding StatusColor}"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Old" Width="*">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding OldName}" ToolTip="{Binding OldPath}"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="New" Width="*">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                <TextBlock Text="{Binding NewName}" ToolTip="{Binding NewPath}"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="Folder" Binding="{Binding RelativeFolder}" Visibility="Collapsed"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-                <Border Grid.Row="1" Background="#07000000" BorderThickness="1" BorderBrush="#22000000" Padding="5">
-                    <DockPanel HorizontalAlignment="Right">
-                        <CheckBox x:Name="PreviewAuto" Content="Auto preview" IsChecked="True" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                    <Button Content="Preview" Click="OnPreview" IsEnabled="{Binding IsChecked, Converter={StaticResource InverseBooleanConverter}, ElementName=PreviewAuto}" Style="{StaticResource BlueButton}"/>
-                    </DockPanel>
-                </Border>
-            </Grid>
+            <TabControl Grid.Column="2">
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Preview" VerticalAlignment="Center"/>
+                            <Border Background="#0088DD" CornerRadius="4" Margin="5,0,0,0" Padding="5,3">
+                                <TextBlock FontSize="10" FontWeight="Bold" Foreground="#FFF" Text="{Binding PreviewTitle}"/>
+                            </Border>
+                        </StackPanel>
+                    </TabItem.Header>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <DataGrid
+                            AutoGenerateColumns="False"
+                            BorderThickness="0"
+                            HeadersVisibility="Column"
+                            ItemsSource="{Binding Actions}"
+                            SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Status" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Ellipse Width="8" Height="8" Fill="{Binding Status}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Old" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding OldName}" ToolTip="{Binding OldPath}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="New" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                        <TextBlock Text="{Binding NewName}" ToolTip="{Binding NewPath}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Folder" Binding="{Binding RelativeFolder}" Visibility="Collapsed"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="1" Background="#07000000" BorderThickness="1" BorderBrush="#22000000" Padding="5">
+                            <DockPanel HorizontalAlignment="Right">
+                                <CheckBox x:Name="PreviewAuto" Content="Auto preview" IsChecked="True" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <Button Content="Preview" Click="OnPreview" IsEnabled="{Binding IsChecked, Converter={StaticResource InverseBooleanConverter}, ElementName=PreviewAuto}" Style="{StaticResource BlueButton}"/>
+                            </DockPanel>
+                        </Border>
+                        <Grid Grid.RowSpan="2" Background="#AAFFFFFF"
+                            Visibility="{Binding IsPreviewing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <ProgressBar Style="{StaticResource RoundLoader}" 
+                                IsIndeterminate="True" 
+                                Height="128" 
+                                Width="128"  
+                                Foreground="#00AAFF" 
+                                Background="#0055FF"/>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+                <TabItem>
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Log" VerticalAlignment="Center"/>
+                            <Border Background="#0088DD" CornerRadius="4" Margin="5,0,0,0" Padding="5,3">
+                                <TextBlock FontSize="10" FontWeight="Bold" Foreground="#FFF" Text="{Binding LogTitle}"/>
+                            </Border>
+                        </StackPanel>
+                    </TabItem.Header>
+                    <DataGrid
+                        AutoGenerateColumns="False"
+                        BorderThickness="0"
+                        HeadersVisibility="Column"
+                        ItemsSource="{Binding Log}"
+                        SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Message" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Message}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+            </TabControl>
         </Grid>
         <Border Grid.Row="1" Background="#11000000" BorderThickness="0,1,0,0" BorderBrush="#33000000" Padding="5">
             <Button Click="OnRenamed">
@@ -443,6 +530,9 @@
                             <DataTrigger Binding="{Binding (Validation.HasError), ElementName=FolderElement}" Value="True">
                                 <Setter Property="IsEnabled" Value="False"/>
                             </DataTrigger>
+                            <DataTrigger Binding="{Binding (Validation.HasError), ElementName=FileNameFormatElement}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding (Validation.HasError), ElementName=IncrementByElement}" Value="True">
                                 <Setter Property="IsEnabled" Value="False"/>
                             </DataTrigger>
@@ -454,5 +544,14 @@
                 </Button.Style>
             </Button>
         </Border>
+        <Grid Grid.RowSpan="2" Background="#AAFFFFFF"
+            Visibility="{Binding IsRenaming, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <ProgressBar Style="{StaticResource RoundLoader}" 
+                IsIndeterminate="True" 
+                Height="128" 
+                Width="128"  
+                Foreground="#00AAFF" 
+                Background="#0055FF"/>
+        </Grid>
     </Grid>
 </Window>
