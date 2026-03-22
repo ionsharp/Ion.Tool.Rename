@@ -9,5 +9,9 @@
     <UseWPF>true</UseWPF>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
     <RootNamespace>Ion.Tool.Rename</RootNamespace>
+    <ApplicationIcon>Image\Logo.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Image\Logo.ico" />
+  </ItemGroup>
 </Project>
