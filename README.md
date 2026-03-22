@@ -1,7 +1,7 @@
 ﻿Ion.Tool.Rename
 ![](https://img.shields.io/badge/style-Stable-green.svg?style=flat&label=Build)
 ![](https://img.shields.io/badge/style-1.0.2-blue.svg?style=flat&label=Version)
-![](https://img.shields.io/badge/style-GNU%20General%20Public%20License%20v3.0-mediumorchid.svg?style=flat&label=License)
+![](https://img.shields.io/badge/style-GPL%203.0-mediumorchid.svg?style=flat&label=License)
 ---
 A batch file renaming tool.
 
