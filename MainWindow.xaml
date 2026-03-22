@@ -1,0 +1,458 @@
+﻿<Window x:Class="Ion.Tool.Rename.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:Ion.Tool.Rename"
+    Title="Rename" 
+    Height="720" 
+    Width="900"
+    WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+
+        <ControlTemplate x:Key="ErrorTemplate">
+            <StackPanel>
+                <AdornedElementPlaceholder x:Name="TextBoxPlaceholder"/>
+                <Canvas Height="0" Margin="0,4,0,0">
+                    <TextBlock Text="▲" Foreground="#CC3300" Canvas.Top="-5" Canvas.Left="15"/>
+                    <Border Background="#CC3300" CornerRadius="4" Padding="10,6" Canvas.Top="7" MinWidth="200">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ⓧ" Margin="0,0,5,0" FontWeight="Bold" Foreground="#FFF" FontSize="20"/>
+                            <TextBlock Text="{Binding [0].ErrorContent}" FontWeight="SemiBold" Foreground="#FFF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Canvas>
+            </StackPanel>
+        </ControlTemplate>
+        <ControlTemplate x:Key="WarningTemplate">
+            <StackPanel>
+                <AdornedElementPlaceholder x:Name="TextBoxPlaceholder"/>
+                <Canvas Height="0" Margin="0,4,0,0">
+                    <TextBlock Text="▲" Foreground="#FFB000" Canvas.Top="-5" Canvas.Left="15"/>
+                    <Border Background="#FFB000" CornerRadius="4" Padding="10,6" Canvas.Top="7" MinWidth="200">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ⓘ" Margin="0,0,5,0" FontWeight="Bold" FontSize="20" Foreground="#FFF"/>
+                            <TextBlock Text="{Binding [0].ErrorContent}" FontWeight="SemiBold" Foreground="#FFF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Canvas>
+            </StackPanel>
+        </ControlTemplate>
+        
+        <Style TargetType="Button">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="11px"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="28,8"/>
+               <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Grid>
+                            <Border x:Name="Border"
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding Border.CornerRadius}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
+                                <ContentPresenter/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="True">
+                    <Setter Property="Cursor" Value="Hand" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Opacity" Value="0.3" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#555"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Padding" Value="6,5"/>
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#FFF"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="AlternationCount" Value="2"/>
+            <Setter Property="AlternatingRowBackground" Value="#0A000000"/>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type DataGridCell}">
+                        <Border Padding="5" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+        <Style TargetType="DataGridRow">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="12px"/>
+            <Setter Property="Foreground" Value="#555"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Padding" Value="8,7,8,8"/>
+        </Style>
+        <Style TargetType="Label">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#555"/>
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12px"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="BorderBrush" Value="#33000000"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="MainBorder" 
+                            Background="{TemplateBinding Background}" 
+                            BorderBrush="{TemplateBinding BorderBrush}" 
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="2">
+                            <ScrollViewer x:Name="PART_ContentHost" 
+                                Margin="{TemplateBinding Padding}" 
+                                Focusable="False" 
+                                HorizontalScrollBarVisibility="Hidden" 
+                                VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Validation.ErrorTemplate" Value="{x:Null}"/>
+            <Style.Triggers>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Validation.HasError" Value="True"/>
+                        <Condition Property="IsKeyboardFocusWithin" Value="True"/>
+                        <Condition Property="Tag" Value="0"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ErrorTemplate}"/>
+                </MultiTrigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Validation.HasError" Value="True"/>
+                        <Condition Property="IsKeyboardFocusWithin" Value="True"/>
+                        <Condition Property="Tag" Value="1"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Validation.ErrorTemplate" Value="{StaticResource WarningTemplate}"/>
+                </MultiTrigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Validation.HasError" Value="True"/>
+                        <Condition Property="Tag" Value="0"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="BorderBrush" Value="#CC3300"/>
+                </MultiTrigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Validation.HasError" Value="True"/>
+                        <Condition Property="Tag" Value="1"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="BorderBrush" Value="#FFCC00"/>
+                </MultiTrigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Validation.HasError" Value="False"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="BorderBrush" Value="#555555"/>
+                </MultiTrigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="Validation.HasError" Value="False"/>
+                        <Condition Property="IsFocused" Value="True"/>
+                    </MultiTrigger.Conditions>
+                    <Setter Property="BorderBrush" Value="#0078D4"/>
+                </MultiTrigger>
+
+                <Trigger Property="IsEnabled" Value="True">
+                    <Setter Property="Opacity" Value="1.0" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.3" />
+                </Trigger>
+
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=(Validation.Errors)[0].ErrorContent}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="GreenButton" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#00CC00" />
+            <Setter Property="BorderBrush" Value="#00CC00" />
+            <Setter Property="Foreground" Value="White" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#00AA00" />
+                    <Setter Property="BorderBrush" Value="#00AA00" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#007700" />
+                    <Setter Property="BorderBrush" Value="#007700" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="BlueButton" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#0077FF" />
+            <Setter Property="BorderBrush" Value="#0077FF" />
+            <Setter Property="Foreground" Value="White" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#0066DD" />
+                    <Setter Property="BorderBrush" Value="#0066DD" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0055BB" />
+                    <Setter Property="BorderBrush" Value="#0055BB" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+
+        <Style x:Key="GroupTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13px"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#666"/>
+            <Setter Property="Margin" Value="6,0"/>
+        </Style>
+        <Style x:Key="LabelTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#888"/>
+            <Setter Property="FontSize" Value="12px"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </Window.Resources>
+    <Grid IsEnabled="{Binding IsRenaming, Converter={StaticResource InverseBooleanConverter}}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="4*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="6*"/>
+            </Grid.ColumnDefinitions>
+            <ScrollViewer
+                HorizontalScrollBarVisibility="Disabled" 
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <GroupBox>
+                        <GroupBox.Header>
+                            <TextBlock Style="{StaticResource GroupTitle}">FOLDER</TextBlock>
+                        </GroupBox.Header>
+                        <StackPanel>
+                            <DockPanel>
+                                <Button Content="Browse..." Click="OnBrowse" DockPanel.Dock="Right" Margin="10,0,0,0" Style="{StaticResource BlueButton}"/>
+                                <TextBox x:Name="FolderElement" VerticalAlignment="Center" TextChanged="AutoPreview_Updated" Tag="0">
+                                    <Binding Path="Folder" UpdateSourceTrigger="PropertyChanged">
+                                        <Binding.ValidationRules>
+                                            <local:FolderRule ValidatesOnTargetUpdated="True"/>
+                                        </Binding.ValidationRules>
+                                    </Binding>
+                                </TextBox>
+                            </DockPanel>
+                            <CheckBox Content="Include subfolders" 
+                                IsChecked="{Binding IncludeSubfolders, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                Margin="0,10,0,0" 
+                                Checked="AutoPreview_Updated" 
+                                Unchecked="AutoPreview_Updated"/>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Grid.Column="0">
+                        <GroupBox.Header>
+                            <TextBlock Style="{StaticResource GroupTitle}">FILE NAME</TextBlock>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="0">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource LabelTitle}">
+                                        <Run>Format</Run> <Run FontStyle="Italic" Foreground="#55000000">{n} = number</Run>
+                                    </TextBlock>
+                                    <TextBox x:Name="PatternBox" Text="{}{n}" TextChanged="AutoPreview_Updated"/>
+                                </StackPanel>
+                            </Label>
+                            <Label Grid.Row="1">
+                                <StackPanel>
+                                    <TextBlock Text="Format padding" Style="{StaticResource LabelTitle}"/>
+                                    <Slider Minimum="1" Maximum="10" Value="{Binding NameFormatPadding, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TickPlacement="BottomRight" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="AutoPreview_Updated"/>
+                                </StackPanel>
+                            </Label>
+                            <Label Grid.Row="2">
+                                <StackPanel>
+                                    <TextBlock Text="Increment at" Style="{StaticResource LabelTitle}"/>
+                                    <TextBox Tag="0" x:Name="IncrementAtElement" TextChanged="AutoPreview_Updated">
+                                        <Binding Path="IncrementAt" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <local:NumberRule ValidatesOnTargetUpdated="True"/>
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </TextBox>
+                                </StackPanel>
+                            </Label>
+                            <Label Grid.Row="3">
+                                <StackPanel>
+                                    <TextBlock Text="Increment by" Style="{StaticResource LabelTitle}"/>
+                                    <TextBox Tag="0" x:Name="IncrementByElement" TextChanged="AutoPreview_Updated">
+                                        <Binding Path="IncrementBy" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <local:NumberRule ValidatesOnTargetUpdated="True"/>
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </TextBox>
+                                </StackPanel>
+                            </Label>
+                            <Label Grid.Row="4" Margin="0">
+                                <CheckBox Content="Increment by extension" 
+                                    IsChecked="{Binding IncrementByExtension, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    Margin="0,5,0,0" Checked="AutoPreview_Updated" Unchecked="AutoPreview_Updated"/>
+                            </Label>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Grid.Column="1">
+                        <GroupBox.Header>
+                            <TextBlock Style="{StaticResource GroupTitle}">FILE EXTENSION</TextBlock>
+                        </GroupBox.Header>
+                        <StackPanel>
+                            <Label>
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,5">
+                                        <CheckBox x:Name="ExtensionOverrideEnabled"/>
+                                        <TextBlock Margin="5,0,0,0">Override</TextBlock>
+                                    </DockPanel>
+                                    <TextBox Tag="1" IsEnabled="{Binding IsChecked, ElementName=ExtensionOverrideEnabled}" TextChanged="AutoPreview_Updated">
+                                        <Binding Path="ExtensionOverride" UpdateSourceTrigger="PropertyChanged">
+                                            <Binding.ValidationRules>
+                                                <local:FileRule ValidatesOnTargetUpdated="True"/>
+                                            </Binding.ValidationRules>
+                                        </Binding>
+                                    </TextBox>
+                                </StackPanel>
+                            </Label>
+
+                            <TextBlock Text="Casing" Style="{StaticResource LabelTitle}"/>
+                            <ComboBox SelectedIndex="{Binding ExtensionCasing, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                SelectionChanged="AutoPreview_Updated">
+                                <ComboBoxItem Content="Original"/>
+                                <ComboBoxItem Content="lowercase"/>
+                                <ComboBoxItem Content="UPPERCASE"/>
+                                <ComboBoxItem Content="Capitalized"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
+            <GridSplitter Grid.Column="1" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Background="Transparent" ShowsPreview="True" Width="8"/>
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <DataGrid
+                    AutoGenerateColumns="False"
+                    BorderBrush="#22000000"
+                    BorderThickness="1,1,1,0"
+                    HeadersVisibility="Column"
+                    ItemsSource="{Binding Actions}"
+                    SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Status" Visibility="Collapsed">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Ellipse Width="10" Height="10" Fill="{Binding StatusColor}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Old" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding OldName}" ToolTip="{Binding OldPath}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="New" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                <TextBlock Text="{Binding NewName}" ToolTip="{Binding NewPath}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Folder" Binding="{Binding RelativeFolder}" Visibility="Collapsed"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Border Grid.Row="1" Background="#07000000" BorderThickness="1" BorderBrush="#22000000" Padding="5">
+                    <DockPanel HorizontalAlignment="Right">
+                        <CheckBox x:Name="PreviewAuto" Content="Auto preview" IsChecked="True" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <Button Content="Preview" Click="OnPreview" IsEnabled="{Binding IsChecked, Converter={StaticResource InverseBooleanConverter}, ElementName=PreviewAuto}" Style="{StaticResource BlueButton}"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+        <Border Grid.Row="1" Background="#11000000" BorderThickness="0,1,0,0" BorderBrush="#33000000" Padding="5">
+            <Button Click="OnRenamed">
+                <Button.Content>
+                    <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Text="Rename" VerticalAlignment="Center"/>
+                        <Border Background="#33000000" Margin="5,0,0,0" Padding="5,2">
+                            <TextBlock x:Name="CountElement" FontStyle="Italic" Text="0 files" VerticalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </Button.Content>
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource GreenButton}">
+                        <Setter Property="IsEnabled" Value="True"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding (Validation.HasError), ElementName=FolderElement}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding (Validation.HasError), ElementName=IncrementByElement}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding (Validation.HasError), ElementName=IncrementAtElement}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </Border>
+    </Grid>
+</Window>
