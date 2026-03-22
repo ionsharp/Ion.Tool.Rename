@@ -5,6 +5,8 @@
 ---
 A batch file renaming tool.
 
+ <img src="https://github.com/ionsharp/Ion.Tool.Rename/blob/main/Image/Preview.png?raw=true"/>
+
 Donate
 ---
 [![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=AJJG6PWLBYQNG)
