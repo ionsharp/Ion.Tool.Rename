@@ -5,7 +5,7 @@
 ---
 A batch file renaming tool.
 
- <img src="https://github.com/ionsharp/Ion.Tool.Rename/blob/main/Image/Preview.png?raw=true"/>
+ <img src="https://github.com/ionsharp/Ion.Tool.Rename/blob/main/Image/Preview.1.1.png?raw=true"/>
 
 Donate
 ---
