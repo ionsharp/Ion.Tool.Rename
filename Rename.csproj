@@ -12,6 +12,16 @@
     <ApplicationIcon>Image\Logo.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Font\Font Awesome 7 Brands-Regular-400.otf" />
+    <None Remove="Font\Font Awesome 7 Free-Regular-400.otf" />
+    <None Remove="Font\Font Awesome 7 Free-Solid-900.otf" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="Image\Logo.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Font\Font Awesome 7 Brands-Regular-400.otf" />
+    <Resource Include="Font\Font Awesome 7 Free-Regular-400.otf" />
+    <Resource Include="Font\Font Awesome 7 Free-Solid-900.otf" />
   </ItemGroup>
 </Project>
