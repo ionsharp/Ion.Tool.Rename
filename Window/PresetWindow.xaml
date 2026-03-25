@@ -1,0 +1,108 @@
+﻿<Window x:Class="Ion.Tool.Rename.PresetWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:Ion.Tool.Rename"
+    mc:Ignorable="d"
+    Title="Presets" 
+    Height="420" 
+    Width="720"
+    WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <ListBox x:Name="PresetList" ItemsSource="{Binding Items}"
+            Margin="10" d:ItemsSource="{d:SampleData ItemCount=5}"
+            ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+            ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <RadioButton GroupName="Preset" IsChecked="{Binding IsSelected, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}, UpdateSourceTrigger=PropertyChanged}" Margin="5,0" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1" Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Border Grid.Row="1" Style="{DynamicResource Footer}">
+            <DockPanel>
+                <Button Click="OnAdd" Margin="5,0" Style="{DynamicResource BlueButton}">
+                    <Button.Content>
+                        <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                            <TextBlock Text="&#xf067;"
+                                Foreground="#FFF"
+                                Margin="0,0,5,0" 
+                                Style="{DynamicResource Icon}"
+                                VerticalAlignment="Center"/>
+                            <TextBlock Text="Add" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+                <Button Click="OnRemove" Margin="5,0" Style="{DynamicResource RedButton}">
+                    <Button.Content>
+                        <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                            <TextBlock Text="&#xf068;"
+                                Foreground="#FFF"
+                                Margin="0,0,5,0" 
+                                Style="{DynamicResource Icon}"
+                                VerticalAlignment="Center"/>
+                            <TextBlock Text="Remove" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+                <Button Click="OnClear" Margin="5,0" Style="{DynamicResource RedButton}">
+                    <Button.Content>
+                        <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                            <TextBlock Text="&#xf1f8;"
+                                Foreground="#FFF"
+                                Margin="0,0,5,0" 
+                                Style="{DynamicResource Icon}"
+                                VerticalAlignment="Center"/>
+                            <TextBlock Text="Clear" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+                <DockPanel HorizontalAlignment="Right">
+                    <Button Click="OnSelect" Margin="0,0,5,0" Style="{DynamicResource GreenButton}">
+                        <Button.Content>
+                            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                                <TextBlock Text="&#xf00c;"
+                                    Foreground="#FFF"
+                                    Margin="0,0,5,0" 
+                                    Style="{DynamicResource Icon}"
+                                    VerticalAlignment="Center"/>
+                                <TextBlock Text="Select" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                    <Button Click="OnCancel" Style="{DynamicResource RedButton}">
+                        <Button.Content>
+                            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                                <TextBlock Text="&#xf00d;"
+                                    Foreground="#FFF"
+                                    Margin="0,0,5,0" 
+                                    Style="{DynamicResource Icon}"
+                                    VerticalAlignment="Center"/>
+                                <TextBlock Text="Cancel" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                </DockPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

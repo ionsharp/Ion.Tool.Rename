@@ -1,262 +1,181 @@
-﻿using System.ComponentModel;
-using System.IO;
+﻿using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace Ion.Tool.Rename;
 
-/// <inheritdoc/>
 public static class Thumbnail
 {
-    /// <inheritdoc/>
-    private static ImageSource Get(string filePath, bool Small, bool checkDisk, bool addOverlay)
+    /// <see cref="private"/>
+    #region
+
+    private const int FILE_ATTRIBUTE_NORMAL = 0x80;
+    private const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
+    private const uint SHGFI_ICON = 0x000000100;
+    private const uint SHGFI_SYSICONINDEX = 0x000004000;
+    private const uint SHGFI_LINKOVERLAY = 0x000008000;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct SHFILEINFO
     {
-        SHFILEINFO shinfo = new();
-
-        uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
-        uint SHGFI_LINKOVERLAY = 0x000008000;
-
-        uint flags;
-        if (Small)
-        {
-            flags = SHGFI_ICON | SHGFI_SMALLICON;
-        }
-        else
-        {
-            flags = SHGFI_ICON | SHGFI_LARGEICON;
-        }
-        if (!checkDisk)
-            flags |= SHGFI_USEFILEATTRIBUTES;
-        if (addOverlay)
-            flags |= SHGFI_LINKOVERLAY;
-
-        var res = SHGetFileInfo(filePath, 0, ref shinfo, Marshal.SizeOf(shinfo), flags);
-        if (res == 0)
-        {
-            throw (new System.IO.FileNotFoundException());
-        }
-
-        var myIcon = System.Drawing.Icon.FromHandle(shinfo.hIcon);
-
-        var bs = GetFrom(myIcon);
-        myIcon.Dispose();
-        bs.Freeze(); // importantissimo se no fa memory leak
-        DestroyIcon(shinfo.hIcon);
-        SendMessage(shinfo.hIcon, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-        return bs;
+        public IntPtr hIcon;
+        public int iIcon;
+        public uint dwAttributes;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szDisplayName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+        public string szTypeName;
     }
 
-    /// <inheritdoc/>
-    public static ImageSource GetFrom(System.Drawing.Icon i)
+    [ComImport, Guid("46EB5926-582E-4017-9FDF-E8998DAA0950"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IImageList
     {
-        var bitmap = i.ToBitmap();
-        var hBitmap = bitmap.GetHbitmap();
-
-        var result = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-        if (!DeleteObject(hBitmap))
-            throw new Win32Exception();
-
-        return result;
+        [PreserveSig] int Add(IntPtr hbmImage, IntPtr hbmMask, ref int pi);
+        [PreserveSig] int ReplaceIcon(int i, IntPtr hicon, ref int pi);
+        [PreserveSig] int SetOverlayImage(int iImage, int iOverlay);
+        [PreserveSig] int Replace(int i, IntPtr hbmImage, IntPtr hbmMask);
+        [PreserveSig] int AddMasked(IntPtr hbmImage, int crMask, ref int pi);
+        [PreserveSig] int Draw(IntPtr pimldp); /// Simplified
+        [PreserveSig] int Remove(int i);
+        [PreserveSig] int GetIcon(int i, int flags, ref IntPtr picon);
     }
 
-    /// <inheritdoc/>
-    public static ImageSource GetThumb(string path)
-    {
-        BitmapMetadata meta = null;
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SHGetFileInfo(string pszPath, int dwFileAttributes, ref SHFILEINFO psfi, int cbFileInfo, uint uFlags);
 
-        double angle = 0;
-        var orientation = ExifOrientations.None;
-        BitmapSource result;
+    [DllImport("shell32.dll", EntryPoint = "#727")]
+    private static extern int SHGetImageList(int iImageList, ref Guid riid, out IImageList ppv);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
+    private static BitmapSource Clean(IntPtr hIcon)
+    {
         try
         {
-            //Attempt of creation of the thumbnail via Bitmap frame: very fast and very inexpensive memory!
-            var frame = BitmapFrame.Create(new Uri(path), BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
-            if (frame.Thumbnail is null) // failure, attempts with BitmapImage (slower and expensive in memory)
-            {
-                MemoryStream ms = new();
-                byte[] bytes = File.ReadAllBytes(path);
-                ms.Write(bytes, 0, bytes.Length);
-
-                var image = new BitmapImage()
-                {
-                    CacheOption = BitmapCacheOption.None,
-                    CreateOptions = BitmapCreateOptions.DelayCreation,
-                    DecodePixelHeight = 256
-                };
-
-                image.BeginInit();
-                image.StreamSource = ms;
-                image.EndInit();
-
-                if (image.CanFreeze)
-                    image.Freeze(); //To avoid memory leak 
-
-                result = image;
-            }
-            else
-            {
-                //Get the image meta
-                meta = frame.Metadata as BitmapMetadata;
-                result = frame.Thumbnail;
-            }
-
-            if ((meta != null) && (result != null)) //si on a des meta, tentative de récupération de l'orientation
-            {
-                if (meta.GetQuery("/app1/ifd/{ushort=274}") != null) orientation = (ExifOrientations)Enum.Parse(typeof(ExifOrientations), meta.GetQuery("/app1/ifd/{ushort=274}").ToString());
-                switch (orientation)
-                {
-                    case ExifOrientations.Rotate90:
-                        angle = -90;
-                        break;
-                    case ExifOrientations.Rotate180:
-                        angle = 180;
-                        break;
-                    case ExifOrientations.Rotate270:
-                        angle = 90;
-                        break;
-                }
-                if (angle != 0) // we have to rotate the image
-                {
-                    result = new TransformedBitmap(result.Clone(), new RotateTransform(angle));
-                    result.Freeze();
-                }
-            }
+            var bs = Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            bs.Freeze(); /// Crucial for multi-threading and preventing leaks
+            return bs;
         }
-        catch
+        finally
         {
-            return null;
+            DestroyIcon(hIcon);
         }
-        return result;
     }
 
-    /// <inheritdoc/>
-    private static ImageSource GetLarge(string filePath, bool jumbo, bool checkDisk)
+    private static BitmapSource? GetShell(string filePath, int sizeIndex, bool checkDisk)
     {
         try
         {
             SHFILEINFO shinfo = new();
+            uint flags = SHGFI_SYSICONINDEX;
+            if (!checkDisk) flags |= SHGFI_USEFILEATTRIBUTES;
 
-            uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
-            uint SHGFI_SYSICONINDEX = 0x4000;
+            int attribute = checkDisk ? 0 : FILE_ATTRIBUTE_NORMAL;
+            SHGetFileInfo(filePath, attribute, ref shinfo, Marshal.SizeOf(shinfo), flags);
 
-            int FILE_ATTRIBUTE_NORMAL = 0x80;
-
-            uint flags;
-            flags = SHGFI_SYSICONINDEX;
-
-            if (!checkDisk)  // This does not seem to work. If I try it, a folder icon is always returned.
-                flags |= SHGFI_USEFILEATTRIBUTES;
-
-            var res = SHGetFileInfo(filePath, FILE_ATTRIBUTE_NORMAL, ref shinfo, Marshal.SizeOf(shinfo), flags);
-            if (res == 0)
-            {
-                throw (new System.IO.FileNotFoundException());
-            }
-            var iconIndex = shinfo.iIcon;
-
-            // Get the System IImageList object from the Shell:
             Guid iidImageList = new("46EB5926-582E-4017-9FDF-E8998DAA0950");
-
-            int size = jumbo ? SHIL_JUMBO : SHIL_EXTRALARGE;
-            var hres = SHGetImageList(size, ref iidImageList, out IImageList iml);
-            // writes iml
-            //if (hres == 0)
-            //{
-            //    throw (new System.Exception("Error SHGetImageList"));
-            //}
-
-            IntPtr hIcon = IntPtr.Zero;
-            int ILD_TRANSPARENT = 1;
-            hres = iml.GetIcon(iconIndex, ILD_TRANSPARENT, ref hIcon);
-            //if (hres == 0)
-            //{
-            //    throw (new System.Exception("Error iml.GetIcon"));
-            //}
-
-            var myIcon = System.Drawing.Icon.FromHandle(hIcon);
-            var bs = GetFrom(myIcon);
-            myIcon.Dispose();
-            bs.Freeze(); // very important to avoid memory leak
-            DestroyIcon(hIcon);
-            SendMessage(hIcon, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
-            return bs;
+            if (SHGetImageList(sizeIndex, ref iidImageList, out IImageList iml) == 0)
+            {
+                IntPtr hIcon = IntPtr.Zero;
+                if (iml.GetIcon(shinfo.iIcon, 1, ref hIcon) == 0) /// 1 = ILD_TRANSPARENT
+                {
+                    return Clean(hIcon);
+                }
+            }
         }
-        catch
-        {
-            return null;
-        }
+        catch { /* Log error if necessary */ }
+        return null;
     }
 
-    /// <inheritdoc/>
-    public static ImageSource GetLarge(string filePath) => GetLarge(filePath, true, true);
-
-
-    /// <see cref="DllImportAttribute"/>
-    #region
-
-    /// <inheritdoc/>
-    private const int WM_CLOSE = 0x0010;
-
-    /// <inheritdoc/>
-    private const int SHGFI_ICON = 0x100;
-
-    /// <inheritdoc/>
-    private const int SHGFI_SMALLICON = 0x1;
-
-    /// <inheritdoc/>
-    private const int SHGFI_LARGEICON = 0x0;
-
-    /// <inheritdoc/>
-    private const int SHIL_JUMBO = 0x4;
-
-    /// <inheritdoc/>
-    private const int SHIL_EXTRALARGE = 0x2;
-
-
-    /// <inheritdoc/>
-    private struct Pair
+    private static BitmapSource? GetStandard(string filePath, bool small, bool checkDisk, bool addOverlay)
     {
-        public System.Drawing.Icon Icon { get; set; }
+        SHFILEINFO shinfo = new();
+        uint flags = SHGFI_ICON | (small ? (uint)0x1 : (uint)0x0);
 
-        public IntPtr HandleToDestroy { set; get; }
+        if (!checkDisk) flags |= SHGFI_USEFILEATTRIBUTES;
+        if (addOverlay) flags |= SHGFI_LINKOVERLAY;
+
+        int attribute = checkDisk ? 0 : FILE_ATTRIBUTE_NORMAL;
+
+        var res = SHGetFileInfo(filePath, attribute, ref shinfo, Marshal.SizeOf(shinfo), flags);
+        if (res == 0 || shinfo.hIcon == IntPtr.Zero) return null;
+
+        return Clean(shinfo.hIcon);
     }
-
-
-    /// <inheritdoc/>
-    [DllImport("user32")]
-    internal static extern IntPtr SendMessage(IntPtr handle, int Msg, IntPtr wParam, IntPtr lParam);
-
-    /// <summary>
-    /// SHGetImageList is not exported correctly in XP.  See KB316931
-    /// http://support.microsoft.com/default.aspx?scid=kb;EN-US;Q316931
-    /// Apparently (and hopefully) ordinal 727 isn't going to change.
-    /// </summary> 
-    [DllImport("shell32.dll", EntryPoint = "#727")]
-    internal static extern int SHGetImageList(int iImageList, ref Guid riid, out IImageList ppv);
-
-    /// <summary>
-    /// The signature of SHGetFileInfo (located in Shell32.dll)
-    /// </summary>
-    [DllImport("Shell32.dll", CharSet = CharSet.Unicode)]
-    internal static extern int SHGetFileInfo(string pszPath, int dwFileAttributes, ref SHFILEINFO psfi, int cbFileInfo, uint uFlags);
-
-    /// <inheritdoc/>
-    [DllImport("Shell32.dll")]
-    internal static extern int SHGetFileInfo(IntPtr pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, int cbFileInfo, uint uFlags);
-
-    /// <inheritdoc/>
-    [DllImport("shell32.dll", SetLastError = true)]
-    internal static extern int SHGetSpecialFolderLocation(IntPtr hwndOwner, int nFolder, ref IntPtr ppidl);
-
-    /// <inheritdoc/>
-    [DllImport("user32")]
-    internal static extern int DestroyIcon(IntPtr hIcon);
-
-    /// <inheritdoc/>
-    [DllImport("gdi32.dll")]
-    internal static extern bool DeleteObject(IntPtr hObject);
 
     #endregion
+
+    /// <see cref="public"/>
+    #region
+
+    public static ImageSource GetIcon(string filePath, ThumbnailSize size, bool checkDisk = true, bool addOverlay = false)
+    {
+        /// For Small/Large, we use SHGetFileInfo. For XL/Jumbo, we use SHGetImageList.
+        if (size == ThumbnailSize.Small || size == ThumbnailSize.Large)
+        {
+            return GetStandard(filePath, size == ThumbnailSize.Small, checkDisk, addOverlay);
+        }
+        return GetShell(filePath, (int)size, checkDisk);
+    }
+
+    public static ImageSource GetImage(string path, int decodeHeight = 256)
+    {
+        try
+        {
+            /// Use DelayCreation and OnLoad to avoid locking the file or reading the whole thing into memory
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var frame = BitmapFrame.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.OnLoad);
+
+            BitmapSource result = frame.Thumbnail;
+
+            if (result == null)
+            {
+                /// Fallback: Create a scaled version of the main image
+                var bi = new BitmapImage();
+                bi.BeginInit();
+                bi.StreamSource = stream;
+                bi.DecodePixelHeight = decodeHeight;
+                bi.EndInit();
+                result = bi;
+            }
+
+            /// Handle Orientation
+            if (frame.Metadata is BitmapMetadata meta)
+            {
+                var query = meta.GetQuery("/app1/ifd/{ushort=274}");
+                if (query != null)
+                {
+                    double angle = (ushort)query switch
+                    {
+                        3 => 180,
+                        6 => 90,
+                        8 => -90,
+                        _ => 0
+                    };
+                    if (angle != 0)
+                    {
+                        result = new TransformedBitmap(result, new RotateTransform(angle));
+                    }
+                }
+            }
+
+            if (result.CanFreeze) result.Freeze();
+            return result;
+        }
+        catch { return null; }
+    }
+
+    #endregion
+}
+
+public enum ThumbnailSize
+{
+    Small = 0,      /// 16x16
+    Large = 1,      /// 32x32
+    ExtraLarge = 2, /// 48x48
+    Jumbo = 4       /// 256x256
 }

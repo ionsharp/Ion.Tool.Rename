@@ -1,11 +1,9 @@
 ﻿Ion.Tool.Rename
-![](https://img.shields.io/badge/style-Stable-green.svg?style=flat&label=Build)
-![](https://img.shields.io/badge/style-1.0.2-blue.svg?style=flat&label=Version)
+![](https://img.shields.io/badge/style-Testing-green.svg?style=flat&label=Build)
+![](https://img.shields.io/badge/style-1.2.0-blue.svg?style=flat&label=Version)
 ![](https://img.shields.io/badge/style-GPL%203.0-mediumorchid.svg?style=flat&label=License)
 ---
 A batch file renaming tool.
-
- <img src="https://github.com/ionsharp/Ion.Tool.Rename/blob/main/Image/Preview.1.1.png?raw=true"/>
 
 Donate
 ---
